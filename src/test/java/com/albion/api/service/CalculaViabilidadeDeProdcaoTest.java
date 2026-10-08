@@ -22,54 +22,45 @@ class CalculaViabilidadeDeProdcaoTest {
 	}
 
 	@Test
-	@DisplayName("Deve calcular viabilidade com taxa de retorno de 20% e taxa de 6% quando possui Conta Premium")
-	void deveCalcularComRetornoEContaPremium() {
-		// Cenário:
-		// 1 item, 10 barras de ferro (valor unitário 100.00).
-		// Taxa de Retorno = 20% -> Consumo efetivo = 8 barras = 800.00 de custo.
-		// Preço de venda = 1000.00.
-		// Com Conta Premium -> taxa de mercado de 6% = 60.00 de taxa.
-		// Receita líquida = 1000.00 - 60.00 = 940.00.
-		// Lucro líquido = 940.00 - 800.00 = 140.00.
+	@DisplayName("Deve calcular operação completa com compra de diário vazio e venda do diário cheio")
+	void deveCalcularOperacaoComDiariosCompletos() {
 		CraftRequestDto request = new CraftRequestDto(
-				List.of(new RecursoRequestDto("Barra de Ferro", 10, new BigDecimal("100.00"))),
-				1,
-				20,
-				new BigDecimal("1000.00"),
-				true
+				List.of(new RecursoRequestDto("Barra de Ferro T4", 16, new BigDecimal("200.00"))),
+				5,                                    // 5 itens
+				25,                                   // 25% de retorno -> 60 barras gastas = 12.000
+				new BigDecimal("6000.00"),            // Preço de venda = 6.000 (Bruto = 30.000)
+				true,                                 // Conta Premium = true (6% taxa de venda)
+				new BigDecimal("500.00"),             // Taxa da estação por 100 de nutrição = 500
+				new BigDecimal("800.00"),             // Item Value = 800 -> Nutrição = 450 -> Taxa = 2.250
+				2,                                    // 2 diários
+				new BigDecimal("1200.00"),            // Compra do diário vazio = 1.200 cada (Total = 2.400)
+				new BigDecimal("5000.00"),            // Venda do diário cheio = 5.000 cada (Total bruto = 10.000)
+				null,                                 // valorVendaDiario
+				false,                                // Venda Instantânea (sem taxa de montagem de 2.5%)
+				true,                                 // Usou foco
+				1000                                  // 1000 pontos de foco
 		);
 
 		CraftResponseDto response = service.calcular(request);
 
 		assertNotNull(response);
-		assertEquals(new BigDecimal("800.00"), response.custoTotalDaProdcao());
-		assertEquals(1, response.custoPorRecurso().size());
-		assertEquals("Barra de Ferro", response.custoPorRecurso().get(0).nome());
-		assertEquals(new BigDecimal("800.00"), response.custoPorRecurso().get(0).valor());
-		assertEquals(new BigDecimal("140.00"), response.lucro());
-	}
+		// Custo de compra dos vazios: 2 * 1200 = 2.400
+		assertEquals(new BigDecimal("2400.00"), response.custoDiariosVazios());
 
-	@Test
-	@DisplayName("Deve aplicar 12% de taxa de mercado quando NÃO possui Conta Premium (sem o desconto de 6%)")
-	void deveCalcularSemContaPremiumComTaxaDeMercado() {
-		// Cenário:
-		// Custo = 800.00.
-		// Preço de venda = 1000.00.
-		// Sem Premium -> Taxa de mercado de 12% = 120.00.
-		// Receita líquida = 1000.00 - 120.00 = 880.00.
-		// Lucro líquido = 880.00 - 800.00 = 80.00.
-		CraftRequestDto request = new CraftRequestDto(
-				List.of(new RecursoRequestDto("Barra de Ferro", 10, new BigDecimal("100.00"))),
-				1,
-				20,
-				new BigDecimal("1000.00"),
-				false
-		);
+		// Venda cheios: 2 * 5000 = 10.000. Taxa 6% = 600. Receita líquida diários = 9.400
+		assertEquals(new BigDecimal("9400.00"), response.receitaDiarios());
 
-		CraftResponseDto response = service.calcular(request);
+		// Lucro limpo dos diários: 9.400 - 2.400 = 7.000
+		assertEquals(new BigDecimal("7000.00"), response.lucroLiquidoDiarios());
 
-		assertNotNull(response);
-		assertEquals(new BigDecimal("800.00"), response.custoTotalDaProdcao());
-		assertEquals(new BigDecimal("80.00"), response.lucro());
+		// Custo total: 12.000 (insumos) + 2.250 (estação) + 2.400 (diários vazios) = 16.650
+		assertEquals(new BigDecimal("16650.00"), response.custoTotalDaProdcao());
+
+		// Itens: Venda 30.000 - 6% (1.800) = 28.200
+		// Receita líquida total: 28.200 (itens) + 9.400 (diários) = 37.600
+		assertEquals(new BigDecimal("37600.00"), response.receitaLiquidaTotal());
+
+		// Lucro: 37.600 - 16.650 = 20.950
+		assertEquals(new BigDecimal("20950.00"), response.lucro());
 	}
 }

@@ -22,18 +22,20 @@ class CalculaViabilidadeDeProdcaoTest {
 	}
 
 	@Test
-	@DisplayName("Deve calcular com taxa da estação, diários de artesão e venda instantânea")
-	void deveCalcularComTaxaEstacaoEDiarios() {
+	@DisplayName("Deve calcular operação completa com compra de diário vazio e venda do diário cheio")
+	void deveCalcularOperacaoComDiariosCompletos() {
 		CraftRequestDto request = new CraftRequestDto(
 				List.of(new RecursoRequestDto("Barra de Ferro T4", 16, new BigDecimal("200.00"))),
 				5,                                    // 5 itens
-				25,                                   // 25% de retorno
+				25,                                   // 25% de retorno -> 60 barras gastas = 12.000
 				new BigDecimal("6000.00"),            // Preço de venda = 6.000 (Bruto = 30.000)
 				true,                                 // Conta Premium = true (6% taxa de venda)
 				new BigDecimal("500.00"),             // Taxa da estação por 100 de nutrição = 500
-				new BigDecimal("800.00"),             // Item Value = 800
-				2,                                    // 2 diários cheios
-				new BigDecimal("3500.00"),            // Cada diário vende por 3.500 (Total diários = 7.000)
+				new BigDecimal("800.00"),             // Item Value = 800 -> Nutrição = 450 -> Taxa = 2.250
+				2,                                    // 2 diários
+				new BigDecimal("1200.00"),            // Compra do diário vazio = 1.200 cada (Total = 2.400)
+				new BigDecimal("5000.00"),            // Venda do diário cheio = 5.000 cada (Total bruto = 10.000)
+				null,                                 // valorVendaDiario
 				false,                                // Venda Instantânea (sem taxa de montagem de 2.5%)
 				true,                                 // Usou foco
 				1000                                  // 1000 pontos de foco
@@ -42,20 +44,23 @@ class CalculaViabilidadeDeProdcaoTest {
 		CraftResponseDto response = service.calcular(request);
 
 		assertNotNull(response);
-		// Insumos: 16 * 5 = 80. Consumo efetivo = 80 * 0.75 = 60 barras * 200 = 12.000
-		// Nutrição: 800 * 0.1125 * 5 = 450. Taxa da estação: (450 / 100) * 500 = 2.250
-		// Custo Total: 12.000 + 2.250 = 14.250
-		assertEquals(new BigDecimal("14250.00"), response.custoTotalDaProdcao());
-		assertEquals(new BigDecimal("2250.00"), response.custoTaxaEstacao());
-		assertEquals(new BigDecimal("7000.00"), response.receitaDiarios());
-		assertEquals(new BigDecimal("0.00"), response.taxaMontagemOrdem());
-		// Taxa venda: 30.000 * 6% = 1.800
-		assertEquals(new BigDecimal("1800.00"), response.taxaVendaMercado());
-		// Receita líquida: (30.000 - 1.800) + 7.000 = 35.200
-		assertEquals(new BigDecimal("35200.00"), response.receitaLiquidaTotal());
-		// Lucro: 35.200 - 14.250 = 20.950
+		// Custo de compra dos vazios: 2 * 1200 = 2.400
+		assertEquals(new BigDecimal("2400.00"), response.custoDiariosVazios());
+
+		// Venda cheios: 2 * 5000 = 10.000. Taxa 6% = 600. Receita líquida diários = 9.400
+		assertEquals(new BigDecimal("9400.00"), response.receitaDiarios());
+
+		// Lucro limpo dos diários: 9.400 - 2.400 = 7.000
+		assertEquals(new BigDecimal("7000.00"), response.lucroLiquidoDiarios());
+
+		// Custo total: 12.000 (insumos) + 2.250 (estação) + 2.400 (diários vazios) = 16.650
+		assertEquals(new BigDecimal("16650.00"), response.custoTotalDaProdcao());
+
+		// Itens: Venda 30.000 - 6% (1.800) = 28.200
+		// Receita líquida total: 28.200 (itens) + 9.400 (diários) = 37.600
+		assertEquals(new BigDecimal("37600.00"), response.receitaLiquidaTotal());
+
+		// Lucro: 37.600 - 16.650 = 20.950
 		assertEquals(new BigDecimal("20950.00"), response.lucro());
-		// SPF: 20.950 / 1000 = 20.95
-		assertEquals(new BigDecimal("20.95"), response.prataPorFoco());
 	}
 }

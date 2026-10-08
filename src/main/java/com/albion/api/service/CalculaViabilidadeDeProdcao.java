@@ -29,11 +29,11 @@ public class CalculaViabilidadeDeProdcao {
 	private static final BigDecimal CEM = new BigDecimal("100");
 
 	/**
-	 * Calcula o custo por recurso, taxas de estação, receitas de diários,
-	 * taxas de mercado e o lucro líquido final com métrica de Silver per Focus (SPF).
+	 * Calcula o custo por recurso, taxas de estação, ciclo completo dos diários de artesão
+	 * (compra do vazio vs venda do cheio com taxas), taxas de mercado e Silver per Focus (SPF).
 	 *
 	 * @param request DTO com todos os parâmetros de craft do Albion Online.
-	 * @return CraftResponseDto detalhado.
+	 * @return CraftResponseDto com detalhamento econômico completo.
 	 */
 	public CraftResponseDto calcular(CraftRequestDto request) {
 		if (request == null || request.recurso() == null) {
@@ -70,7 +70,6 @@ public class CalculaViabilidadeDeProdcao {
 		// 2. Cálculo da Taxa da Estação de Fabricação (Station / Nutrition Fee)
 		BigDecimal custoTaxaEstacao = BigDecimal.ZERO;
 		if (request.taxaEstacaoPorCemNutricao() != null && request.taxaEstacaoPorCemNutricao().compareTo(BigDecimal.ZERO) > 0) {
-			// Se o Item Value não foi informado, utiliza a soma dos valores de insumo como base estimada
 			BigDecimal iv = request.itemValue() != null && request.itemValue().compareTo(BigDecimal.ZERO) > 0
 					? request.itemValue()
 					: custoInsumos.divide(BigDecimal.valueOf(quantidadeProducao), 2, RoundingMode.HALF_UP);
@@ -87,51 +86,78 @@ public class CalculaViabilidadeDeProdcao {
 					.setScale(2, RoundingMode.HALF_UP);
 		}
 
-		// Custo Total da Produção = Custo de Insumos + Taxa da Estação
-		BigDecimal custoTotalProducao = custoInsumos.add(custoTaxaEstacao).setScale(2, RoundingMode.HALF_UP);
-
-		// 3. Receita Bruta da Venda dos Itens
+		// 3. Taxas de Mercado (Itens Fabricados):
 		BigDecimal precoVenda = request.precoDeVenda() != null ? request.precoDeVenda() : BigDecimal.ZERO;
 		BigDecimal receitaBrutaItens = precoVenda
 				.multiply(BigDecimal.valueOf(quantidadeProducao))
 				.setScale(2, RoundingMode.HALF_UP);
 
-		// 4. Receita com Diários de Artesão (Crafting Journals)
-		BigDecimal receitaDiarios = BigDecimal.ZERO;
-		if (request.quantidadeDiarios() != null && request.quantidadeDiarios() > 0 &&
-				request.valorVendaDiario() != null && request.valorVendaDiario().compareTo(BigDecimal.ZERO) > 0) {
-			receitaDiarios = request.valorVendaDiario()
-					.multiply(BigDecimal.valueOf(request.quantidadeDiarios()))
-					.setScale(2, RoundingMode.HALF_UP);
-		}
-
-		// 5. Taxas do Mercado de Albion Online:
-		// Taxa de Venda (Sales Tax): 6% com Premium / 12% sem Premium
+		// Taxa de Venda: 6% com Premium / 12% sem Premium
 		BigDecimal aliquotaVenda = request.contaPremium()
 				? TAXA_MERCADO_COM_PREMIUM
 				: TAXA_MERCADO_SEM_PREMIUM;
-		BigDecimal taxaVendaMercado = receitaBrutaItens
+		BigDecimal taxaVendaItens = receitaBrutaItens
 				.multiply(aliquotaVenda)
 				.setScale(2, RoundingMode.HALF_UP);
 
 		// Taxa de Montagem de Ordem (Setup Fee): 2.5% apenas se for vendido via Ordem de Venda
 		boolean ehOrdemDeVenda = request.ordemDeVenda() == null || request.ordemDeVenda();
-		BigDecimal taxaMontagemOrdem = ehOrdemDeVenda
-				? receitaBrutaItens.multiply(TAXA_MONTAGEM_ORDEM).setScale(2, RoundingMode.HALF_UP)
-				: BigDecimal.ZERO;
-
-		BigDecimal totalTaxasMercado = taxaVendaMercado.add(taxaMontagemOrdem);
-
-		// Receita Líquida Total = (Receita Bruta - Taxas de Mercado) + Receita de Diários
-		BigDecimal receitaLiquidaTotal = receitaBrutaItens
-				.subtract(totalTaxasMercado)
-				.add(receitaDiarios)
+		BigDecimal taxaMontagemOrdemAliquota = ehOrdemDeVenda ? TAXA_MONTAGEM_ORDEM : BigDecimal.ZERO;
+		BigDecimal taxaMontagemItens = receitaBrutaItens
+				.multiply(taxaMontagemOrdemAliquota)
 				.setScale(2, RoundingMode.HALF_UP);
+
+		BigDecimal receitaLiquidaItens = receitaBrutaItens
+				.subtract(taxaVendaItens)
+				.subtract(taxaMontagemItens)
+				.setScale(2, RoundingMode.HALF_UP);
+
+		// 4. Operação Completa com Diários de Artesão (Crafting Journals):
+		// Para saber se vale a pena: Compra o diário vazio -> Enche com a fama do craft -> Vende o cheio no mercado
+		BigDecimal custoDiariosVazios = BigDecimal.ZERO;
+		BigDecimal receitaBrutaDiarios = BigDecimal.ZERO;
+		BigDecimal taxaVendaDiarios = BigDecimal.ZERO;
+		BigDecimal taxaMontagemDiarios = BigDecimal.ZERO;
+		BigDecimal receitaLiquidaDiarios = BigDecimal.ZERO;
+		BigDecimal lucroLiquidoDiarios = BigDecimal.ZERO;
+
+		int qtdDiarios = request.quantidadeDiarios() != null ? Math.max(0, request.quantidadeDiarios()) : 0;
+		if (qtdDiarios > 0) {
+			// Preço de venda do cheio
+			BigDecimal precoCheio = request.precoDiarioCheio() != null && request.precoDiarioCheio().compareTo(BigDecimal.ZERO) > 0
+					? request.precoDiarioCheio()
+					: (request.valorVendaDiario() != null ? request.valorVendaDiario() : BigDecimal.ZERO);
+
+			receitaBrutaDiarios = precoCheio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);
+
+			// Preço de compra do vazio
+			BigDecimal precoVazio = request.precoDiarioVazio() != null ? request.precoDiarioVazio() : BigDecimal.ZERO;
+			custoDiariosVazios = precoVazio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);
+
+			// Taxas de mercado na venda dos diários (mesma alíquota de venda e montagem de ordem)
+			taxaVendaDiarios = receitaBrutaDiarios.multiply(aliquotaVenda).setScale(2, RoundingMode.HALF_UP);
+			taxaMontagemDiarios = receitaBrutaDiarios.multiply(taxaMontagemOrdemAliquota).setScale(2, RoundingMode.HALF_UP);
+
+			receitaLiquidaDiarios = receitaBrutaDiarios.subtract(taxaVendaDiarios).subtract(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);
+			lucroLiquidoDiarios = receitaLiquidaDiarios.subtract(custoDiariosVazios).setScale(2, RoundingMode.HALF_UP);
+		}
+
+		// 5. Consolidação de Custos, Taxas e Receitas:
+		// Custo Total da Produção = Insumos + Taxa da Estação + Custo de Aquisição dos Diários Vazios
+		BigDecimal custoTotalProducao = custoInsumos
+				.add(custoTaxaEstacao)
+				.add(custoDiariosVazios)
+				.setScale(2, RoundingMode.HALF_UP);
+
+		// Total de taxas de venda e montagem consolidadas
+		BigDecimal taxaVendaTotal = taxaVendaItens.add(taxaVendaDiarios).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal taxaMontagemTotal = taxaMontagemItens.add(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);
+
+		// Receita Líquida Total = Receita Líquida dos Itens + Receita Líquida dos Diários
+		BigDecimal receitaLiquidaTotal = receitaLiquidaItens.add(receitaLiquidaDiarios).setScale(2, RoundingMode.HALF_UP);
 
 		// 6. Lucro Líquido Final = Receita Líquida Total - Custo Total da Produção
-		BigDecimal lucro = receitaLiquidaTotal
-				.subtract(custoTotalProducao)
-				.setScale(2, RoundingMode.HALF_UP);
+		BigDecimal lucro = receitaLiquidaTotal.subtract(custoTotalProducao).setScale(2, RoundingMode.HALF_UP);
 
 		// 7. Métrica de Prata por Ponto de Foco (Silver per Focus - SPF)
 		BigDecimal prataPorFoco = BigDecimal.ZERO;
@@ -145,9 +171,11 @@ public class CalculaViabilidadeDeProdcao {
 				custosPorRecurso,
 				lucro,
 				custoTaxaEstacao,
-				receitaDiarios,
-				taxaMontagemOrdem,
-				taxaVendaMercado,
+				receitaLiquidaDiarios,
+				custoDiariosVazios,
+				lucroLiquidoDiarios,
+				taxaMontagemTotal,
+				taxaVendaTotal,
 				receitaLiquidaTotal,
 				prataPorFoco
 		);

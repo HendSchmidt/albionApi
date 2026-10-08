@@ -13,7 +13,9 @@ public record CraftRequestDto(
 		BigDecimal taxaEstacaoPorCemNutricao, // Taxa cobrada pelo dono da barraca na cidade (por 100 de nutrição)
 		BigDecimal itemValue,                 // Item Value do item para cálculo da nutrição consumida
 		Integer quantidadeDiarios,            // Quantidade de diários de artesão preenchidos no lote
-		BigDecimal valorVendaDiario,          // Preço de mercado de venda de cada diário cheio
+		BigDecimal precoDiarioVazio,          // Preço de compra de cada diário vazio no mercado
+		BigDecimal precoDiarioCheio,          // Preço de venda de cada diário cheio no mercado
+		BigDecimal valorVendaDiario,          // Mantido para compatibilidade retroativa (caso precoDiarioCheio não venha)
 		Boolean ordemDeVenda,                 // true = Ordem de Venda (adiciona taxa de 2.5%), false = Venda Instantânea
 		Boolean usarFoco,                     // Indica se foi utilizado Foco de Produção
 		Integer custoFocoTotal                // Quantidade total de pontos de foco gastos no lote
@@ -27,6 +29,6 @@ public record CraftRequestDto(
 			boolean contaPremium
 	) {
 		this(recurso, quantidadeParaProducao, taxaDeRetorno, precoDeVenda, contaPremium,
-				null, null, null, null, true, false, null);
+				null, null, null, null, null, null, true, false, null);
 	}
 }

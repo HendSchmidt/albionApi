@@ -1,0 +1,347 @@
+Index: src/main/resources/application.yaml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>spring:\r\n  application:\r\n    name: api\r\nserver:\r\n    servlet:\r\n      context-path: /albionApi\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/application.yaml b/src/main/resources/application.yaml
+--- a/src/main/resources/application.yaml	(revision f9328c5ba18450fba1b3ce22c7c2860aba530e27)
++++ b/src/main/resources/application.yaml	(date 1791556599460)
+@@ -2,6 +2,12 @@
+   application:
+     name: api
+ server:
+-    servlet:
+-      context-path: /albionApi
++  servlet:
++    context-path: /albionApi
+ 
++logging:
++  level:
++    root: INFO
++    com.albion.api: INFO
++  pattern:
++    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+Index: src/main/java/com/albion/api/service/CalculaViabilidadeDeProdcao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.albion.api.service;\r\n\r\nimport com.albion.api.dto.CraftRequestDto;\r\nimport com.albion.api.dto.CraftResponseDto;\r\nimport com.albion.api.dto.RecursoRequestDto;\r\nimport com.albion.api.dto.RecursoResponseDto;\r\nimport org.springframework.stereotype.Service;\r\n\r\nimport java.math.BigDecimal;\r\nimport java.math.RoundingMode;\r\nimport java.util.ArrayList;\r\nimport java.util.List;\r\n\r\n@Service\r\npublic class CalculaViabilidadeDeProdcao {\r\n\r\n\t// Taxas do mercado:\r\n\t// Com Conta Premium: 6% de taxa (0.06).\r\n\t// Sem Conta Premium: 12% de taxa (0.12), pois a Conta Premium equivale a 6% de desconto.\r\n\tprivate static final BigDecimal TAXA_MERCADO_COM_PREMIUM = new BigDecimal(\"0.06\");\r\n\tprivate static final BigDecimal TAXA_MERCADO_SEM_PREMIUM = new BigDecimal(\"0.12\");\r\n\r\n\t// Taxa de montagem de ordem no mercado do Albion (Setup Fee): 2.5% (0.025)\r\n\tprivate static final BigDecimal TAXA_MONTAGEM_ORDEM = new BigDecimal(\"0.025\");\r\n\r\n\t// Fator oficial de consumo de nutrição por Item Value no Albion: 0.1125\r\n\tprivate static final BigDecimal FATOR_NUTRICAO = new BigDecimal(\"0.1125\");\r\n\r\n\tprivate static final BigDecimal CEM = new BigDecimal(\"100\");\r\n\r\n\t/**\r\n\t * Calcula o custo por recurso, taxas de estação, ciclo completo dos diários de artesão\r\n\t * (compra do vazio vs venda do cheio com taxas), taxas de mercado e Silver per Focus (SPF).\r\n\t *\r\n\t * @param request DTO com todos os parâmetros de craft do Albion Online.\r\n\t * @return CraftResponseDto com detalhamento econômico completo.\r\n\t */\r\n\tpublic CraftResponseDto calcular(CraftRequestDto request) {\r\n\t\tif (request == null || request.recurso() == null) {\r\n\t\t\tthrow new IllegalArgumentException(\"O payload de fabricação e a lista de recursos não podem ser nulos.\");\r\n\t\t}\r\n\r\n\t\tint quantidadeProducao = Math.max(1, request.quantidadeParaProducao());\r\n\t\tint taxaRetorno = Math.max(0, request.taxaDeRetorno());\r\n\r\n\t\t// 1. Fator de retorno de materiais (RRR)\r\n\t\tBigDecimal fatorRetorno = BigDecimal.valueOf(taxaRetorno)\r\n\t\t\t\t.divide(CEM, 4, RoundingMode.HALF_UP);\r\n\t\tBigDecimal fatorConsumo = BigDecimal.ONE.subtract(fatorRetorno);\r\n\r\n\t\tList<RecursoResponseDto> custosPorRecurso = new ArrayList<>();\r\n\t\tBigDecimal custoInsumos = BigDecimal.ZERO;\r\n\r\n\t\t// Cálculo do custo de cada recurso com a taxa de retorno\r\n\t\tfor (RecursoRequestDto recurso : request.recurso()) {\r\n\t\t\tif (recurso == null) continue;\r\n\r\n\t\t\tBigDecimal qtdTotal = BigDecimal.valueOf((long) recurso.quantidade() * quantidadeProducao);\r\n\t\t\tBigDecimal qtdConsumidaEfetiva = qtdTotal.multiply(fatorConsumo);\r\n\r\n\t\t\tBigDecimal valorUnitario = recurso.valor() != null ? recurso.valor() : BigDecimal.ZERO;\r\n\t\t\tBigDecimal custoRecurso = qtdConsumidaEfetiva\r\n\t\t\t\t\t.multiply(valorUnitario)\r\n\t\t\t\t\t.setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t\tcustosPorRecurso.add(new RecursoResponseDto(recurso.nome(), custoRecurso));\r\n\t\t\tcustoInsumos = custoInsumos.add(custoRecurso);\r\n\t\t}\r\n\r\n\t\t// 2. Cálculo da Taxa da Estação de Fabricação (Station / Nutrition Fee)\r\n\t\tBigDecimal custoTaxaEstacao = BigDecimal.ZERO;\r\n\t\tif (request.taxaEstacaoPorCemNutricao() != null && request.taxaEstacaoPorCemNutricao().compareTo(BigDecimal.ZERO) > 0) {\r\n\t\t\tBigDecimal iv = request.itemValue() != null && request.itemValue().compareTo(BigDecimal.ZERO) > 0\r\n\t\t\t\t\t? request.itemValue()\r\n\t\t\t\t\t: custoInsumos.divide(BigDecimal.valueOf(quantidadeProducao), 2, RoundingMode.HALF_UP);\r\n\r\n\t\t\t// Nutrição consumida = Item Value * 0.1125 * Quantidade\r\n\t\t\tBigDecimal nutricaoConsumida = iv\r\n\t\t\t\t\t.multiply(FATOR_NUTRICAO)\r\n\t\t\t\t\t.multiply(BigDecimal.valueOf(quantidadeProducao));\r\n\r\n\t\t\t// Custo = (Nutrição / 100) * Taxa por 100 de nutrição\r\n\t\t\tcustoTaxaEstacao = nutricaoConsumida\r\n\t\t\t\t\t.divide(CEM, 4, RoundingMode.HALF_UP)\r\n\t\t\t\t\t.multiply(request.taxaEstacaoPorCemNutricao())\r\n\t\t\t\t\t.setScale(2, RoundingMode.HALF_UP);\r\n\t\t}\r\n\r\n\t\t// 3. Taxas de Mercado (Itens Fabricados):\r\n\t\tBigDecimal precoVenda = request.precoDeVenda() != null ? request.precoDeVenda() : BigDecimal.ZERO;\r\n\t\tBigDecimal receitaBrutaItens = precoVenda\r\n\t\t\t\t.multiply(BigDecimal.valueOf(quantidadeProducao))\r\n\t\t\t\t.setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t// Taxa de Venda: 6% com Premium / 12% sem Premium\r\n\t\tBigDecimal aliquotaVenda = request.contaPremium()\r\n\t\t\t\t? TAXA_MERCADO_COM_PREMIUM\r\n\t\t\t\t: TAXA_MERCADO_SEM_PREMIUM;\r\n\t\tBigDecimal taxaVendaItens = receitaBrutaItens\r\n\t\t\t\t.multiply(aliquotaVenda)\r\n\t\t\t\t.setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t// Taxa de Montagem de Ordem (Setup Fee): 2.5% apenas se for vendido via Ordem de Venda\r\n\t\tboolean ehOrdemDeVenda = request.ordemDeVenda() == null || request.ordemDeVenda();\r\n\t\tBigDecimal taxaMontagemOrdemAliquota = ehOrdemDeVenda ? TAXA_MONTAGEM_ORDEM : BigDecimal.ZERO;\r\n\t\tBigDecimal taxaMontagemItens = receitaBrutaItens\r\n\t\t\t\t.multiply(taxaMontagemOrdemAliquota)\r\n\t\t\t\t.setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\tBigDecimal receitaLiquidaItens = receitaBrutaItens\r\n\t\t\t\t.subtract(taxaVendaItens)\r\n\t\t\t\t.subtract(taxaMontagemItens)\r\n\t\t\t\t.setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t// 4. Operação Completa com Diários de Artesão (Crafting Journals):\r\n\t\t// Para saber se vale a pena: Compra o diário vazio -> Enche com a fama do craft -> Vende o cheio no mercado\r\n\t\tBigDecimal custoDiariosVazios = BigDecimal.ZERO;\r\n\t\tBigDecimal receitaBrutaDiarios = BigDecimal.ZERO;\r\n\t\tBigDecimal taxaVendaDiarios = BigDecimal.ZERO;\r\n\t\tBigDecimal taxaMontagemDiarios = BigDecimal.ZERO;\r\n\t\tBigDecimal receitaLiquidaDiarios = BigDecimal.ZERO;\r\n\t\tBigDecimal lucroLiquidoDiarios = BigDecimal.ZERO;\r\n\r\n\t\tint qtdDiarios = request.quantidadeDiarios() != null ? Math.max(0, request.quantidadeDiarios()) : 0;\r\n\t\tif (qtdDiarios > 0) {\r\n\t\t\t// Preço de venda do cheio\r\n\t\t\tBigDecimal precoCheio = request.precoDiarioCheio() != null && request.precoDiarioCheio().compareTo(BigDecimal.ZERO) > 0\r\n\t\t\t\t\t? request.precoDiarioCheio()\r\n\t\t\t\t\t: (request.valorVendaDiario() != null ? request.valorVendaDiario() : BigDecimal.ZERO);\r\n\r\n\t\t\treceitaBrutaDiarios = precoCheio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t\t// Preço de compra do vazio\r\n\t\t\tBigDecimal precoVazio = request.precoDiarioVazio() != null ? request.precoDiarioVazio() : BigDecimal.ZERO;\r\n\t\t\tcustoDiariosVazios = precoVazio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t\t// Taxas de mercado na venda dos diários (mesma alíquota de venda e montagem de ordem)\r\n\t\t\ttaxaVendaDiarios = receitaBrutaDiarios.multiply(aliquotaVenda).setScale(2, RoundingMode.HALF_UP);\r\n\t\t\ttaxaMontagemDiarios = receitaBrutaDiarios.multiply(taxaMontagemOrdemAliquota).setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t\treceitaLiquidaDiarios = receitaBrutaDiarios.subtract(taxaVendaDiarios).subtract(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);\r\n\t\t\tlucroLiquidoDiarios = receitaLiquidaDiarios.subtract(custoDiariosVazios).setScale(2, RoundingMode.HALF_UP);\r\n\t\t}\r\n\r\n\t\t// 5. Consolidação de Custos, Taxas e Receitas:\r\n\t\t// Custo Total da Produção = Insumos + Taxa da Estação + Custo de Aquisição dos Diários Vazios\r\n\t\tBigDecimal custoTotalProducao = custoInsumos\r\n\t\t\t\t.add(custoTaxaEstacao)\r\n\t\t\t\t.add(custoDiariosVazios)\r\n\t\t\t\t.setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t// Total de taxas de venda e montagem consolidadas\r\n\t\tBigDecimal taxaVendaTotal = taxaVendaItens.add(taxaVendaDiarios).setScale(2, RoundingMode.HALF_UP);\r\n\t\tBigDecimal taxaMontagemTotal = taxaMontagemItens.add(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t// Receita Líquida Total = Receita Líquida dos Itens + Receita Líquida dos Diários\r\n\t\tBigDecimal receitaLiquidaTotal = receitaLiquidaItens.add(receitaLiquidaDiarios).setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t// 6. Lucro Líquido Final = Receita Líquida Total - Custo Total da Produção\r\n\t\tBigDecimal lucro = receitaLiquidaTotal.subtract(custoTotalProducao).setScale(2, RoundingMode.HALF_UP);\r\n\r\n\t\t// 7. Métrica de Prata por Ponto de Foco (Silver per Focus - SPF)\r\n\t\tBigDecimal prataPorFoco = BigDecimal.ZERO;\r\n\t\tif (Boolean.TRUE.equals(request.usarFoco()) && request.custoFocoTotal() != null && request.custoFocoTotal() > 0) {\r\n\t\t\tprataPorFoco = lucro\r\n\t\t\t\t\t.divide(BigDecimal.valueOf(request.custoFocoTotal()), 2, RoundingMode.HALF_UP);\r\n\t\t}\r\n\r\n\t\treturn new CraftResponseDto(\r\n\t\t\t\tcustoTotalProducao,\r\n\t\t\t\tcustosPorRecurso,\r\n\t\t\t\tlucro,\r\n\t\t\t\tcustoTaxaEstacao,\r\n\t\t\t\treceitaLiquidaDiarios,\r\n\t\t\t\tcustoDiariosVazios,\r\n\t\t\t\tlucroLiquidoDiarios,\r\n\t\t\t\ttaxaMontagemTotal,\r\n\t\t\t\ttaxaVendaTotal,\r\n\t\t\t\treceitaLiquidaTotal,\r\n\t\t\t\tprataPorFoco\r\n\t\t);\r\n\t}\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/albion/api/service/CalculaViabilidadeDeProdcao.java b/src/main/java/com/albion/api/service/CalculaViabilidadeDeProdcao.java
+--- a/src/main/java/com/albion/api/service/CalculaViabilidadeDeProdcao.java	(revision f9328c5ba18450fba1b3ce22c7c2860aba530e27)
++++ b/src/main/java/com/albion/api/service/CalculaViabilidadeDeProdcao.java	(date 1791556599460)
+@@ -4,6 +4,8 @@
+ import com.albion.api.dto.CraftResponseDto;
+ import com.albion.api.dto.RecursoRequestDto;
+ import com.albion.api.dto.RecursoResponseDto;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ import org.springframework.stereotype.Service;
+ 
+ import java.math.BigDecimal;
+@@ -14,6 +16,8 @@
+ @Service
+ public class CalculaViabilidadeDeProdcao {
+ 
++	private static final Logger log = LoggerFactory.getLogger(CalculaViabilidadeDeProdcao.class);
++
+ 	// Taxas do mercado:
+ 	// Com Conta Premium: 6% de taxa (0.06).
+ 	// Sem Conta Premium: 12% de taxa (0.12), pois a Conta Premium equivale a 6% de desconto.
+@@ -36,8 +40,18 @@
+ 	 * @return CraftResponseDto com detalhamento econômico completo.
+ 	 */
+ 	public CraftResponseDto calcular(CraftRequestDto request) {
++		log.info("[Classe: {}] [Metodo: {}] [Entrada: {}]", 
++				"CalculaViabilidadeDeProdcao", 
++				"calcular", 
++				request);
++
+ 		if (request == null || request.recurso() == null) {
+-			throw new IllegalArgumentException("O payload de fabricação e a lista de recursos não podem ser nulos.");
++			IllegalArgumentException ex = new IllegalArgumentException("O payload de fabricação e a lista de recursos não podem ser nulos.");
++			log.error("[Classe: {}] [Metodo: {}] [Erro: {}]", 
++					"CalculaViabilidadeDeProdcao", 
++					"calcular", 
++					ex.getMessage());
++			throw ex;
+ 		}
+ 
+ 		int quantidadeProducao = Math.max(1, request.quantidadeParaProducao());
+@@ -54,10 +68,8 @@
+ 		// Cálculo do custo de cada recurso com a taxa de retorno
+ 		for (RecursoRequestDto recurso : request.recurso()) {
+ 			if (recurso == null) continue;
+-
+ 			BigDecimal qtdTotal = BigDecimal.valueOf((long) recurso.quantidade() * quantidadeProducao);
+ 			BigDecimal qtdConsumidaEfetiva = qtdTotal.multiply(fatorConsumo);
+-
+ 			BigDecimal valorUnitario = recurso.valor() != null ? recurso.valor() : BigDecimal.ZERO;
+ 			BigDecimal custoRecurso = qtdConsumidaEfetiva
+ 					.multiply(valorUnitario)
+@@ -96,6 +108,7 @@
+ 		BigDecimal aliquotaVenda = request.contaPremium()
+ 				? TAXA_MERCADO_COM_PREMIUM
+ 				: TAXA_MERCADO_SEM_PREMIUM;
++
+ 		BigDecimal taxaVendaItens = receitaBrutaItens
+ 				.multiply(aliquotaVenda)
+ 				.setScale(2, RoundingMode.HALF_UP);
+@@ -113,7 +126,6 @@
+ 				.setScale(2, RoundingMode.HALF_UP);
+ 
+ 		// 4. Operação Completa com Diários de Artesão (Crafting Journals):
+-		// Para saber se vale a pena: Compra o diário vazio -> Enche com a fama do craft -> Vende o cheio no mercado
+ 		BigDecimal custoDiariosVazios = BigDecimal.ZERO;
+ 		BigDecimal receitaBrutaDiarios = BigDecimal.ZERO;
+ 		BigDecimal taxaVendaDiarios = BigDecimal.ZERO;
+@@ -123,37 +135,28 @@
+ 
+ 		int qtdDiarios = request.quantidadeDiarios() != null ? Math.max(0, request.quantidadeDiarios()) : 0;
+ 		if (qtdDiarios > 0) {
+-			// Preço de venda do cheio
+ 			BigDecimal precoCheio = request.precoDiarioCheio() != null && request.precoDiarioCheio().compareTo(BigDecimal.ZERO) > 0
+ 					? request.precoDiarioCheio()
+ 					: (request.valorVendaDiario() != null ? request.valorVendaDiario() : BigDecimal.ZERO);
+-
+ 			receitaBrutaDiarios = precoCheio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);
+ 
+-			// Preço de compra do vazio
+ 			BigDecimal precoVazio = request.precoDiarioVazio() != null ? request.precoDiarioVazio() : BigDecimal.ZERO;
+ 			custoDiariosVazios = precoVazio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);
+ 
+-			// Taxas de mercado na venda dos diários (mesma alíquota de venda e montagem de ordem)
+ 			taxaVendaDiarios = receitaBrutaDiarios.multiply(aliquotaVenda).setScale(2, RoundingMode.HALF_UP);
+ 			taxaMontagemDiarios = receitaBrutaDiarios.multiply(taxaMontagemOrdemAliquota).setScale(2, RoundingMode.HALF_UP);
+-
+ 			receitaLiquidaDiarios = receitaBrutaDiarios.subtract(taxaVendaDiarios).subtract(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);
+ 			lucroLiquidoDiarios = receitaLiquidaDiarios.subtract(custoDiariosVazios).setScale(2, RoundingMode.HALF_UP);
+ 		}
+ 
+ 		// 5. Consolidação de Custos, Taxas e Receitas:
+-		// Custo Total da Produção = Insumos + Taxa da Estação + Custo de Aquisição dos Diários Vazios
+ 		BigDecimal custoTotalProducao = custoInsumos
+ 				.add(custoTaxaEstacao)
+ 				.add(custoDiariosVazios)
+ 				.setScale(2, RoundingMode.HALF_UP);
+ 
+-		// Total de taxas de venda e montagem consolidadas
+ 		BigDecimal taxaVendaTotal = taxaVendaItens.add(taxaVendaDiarios).setScale(2, RoundingMode.HALF_UP);
+ 		BigDecimal taxaMontagemTotal = taxaMontagemItens.add(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);
+-
+-		// Receita Líquida Total = Receita Líquida dos Itens + Receita Líquida dos Diários
+ 		BigDecimal receitaLiquidaTotal = receitaLiquidaItens.add(receitaLiquidaDiarios).setScale(2, RoundingMode.HALF_UP);
+ 
+ 		// 6. Lucro Líquido Final = Receita Líquida Total - Custo Total da Produção
+@@ -166,7 +169,7 @@
+ 					.divide(BigDecimal.valueOf(request.custoFocoTotal()), 2, RoundingMode.HALF_UP);
+ 		}
+ 
+-		return new CraftResponseDto(
++		CraftResponseDto response = new CraftResponseDto(
+ 				custoTotalProducao,
+ 				custosPorRecurso,
+ 				lucro,
+@@ -179,5 +182,12 @@
+ 				receitaLiquidaTotal,
+ 				prataPorFoco
+ 		);
++
++		log.info("[Classe: {}] [Metodo: {}] [Saida: {}]", 
++				"CalculaViabilidadeDeProdcao", 
++				"calcular", 
++				response);
++
++		return response;
+ 	}
+ }
+Index: src/main/java/com/albion/api/controller/ProjecaoDeFaturamentoController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.albion.api.controller;\r\n\r\nimport com.albion.api.dto.CraftRequestDto;\r\nimport com.albion.api.dto.CraftResponseDto;\r\nimport com.albion.api.service.CalculaViabilidadeDeProdcao;\r\nimport org.springframework.http.ResponseEntity;\r\nimport org.springframework.web.bind.annotation.CrossOrigin;\r\nimport org.springframework.web.bind.annotation.PostMapping;\r\nimport org.springframework.web.bind.annotation.RequestBody;\r\nimport org.springframework.web.bind.annotation.RestController;\r\n\r\n@RestController\r\n@CrossOrigin(origins = \"*\")\r\npublic class ProjecaoDeFaturamentoController {\r\n\r\n\tprivate final CalculaViabilidadeDeProdcao calculaViabilidadeDeProdcao;\r\n\r\n\tpublic ProjecaoDeFaturamentoController(CalculaViabilidadeDeProdcao calculaViabilidadeDeProdcao) {\r\n\t\tthis.calculaViabilidadeDeProdcao = calculaViabilidadeDeProdcao;\r\n\t}\r\n\r\n\t@PostMapping(value = \"/calculaViabilidadePorRecurso\")\r\n\tpublic ResponseEntity<CraftResponseDto> calculaFaturamento(@RequestBody CraftRequestDto request) {\r\n\t\tCraftResponseDto response = calculaViabilidadeDeProdcao.calcular(request);\r\n\t\treturn ResponseEntity.ok(response);\r\n\t}\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/albion/api/controller/ProjecaoDeFaturamentoController.java b/src/main/java/com/albion/api/controller/ProjecaoDeFaturamentoController.java
+--- a/src/main/java/com/albion/api/controller/ProjecaoDeFaturamentoController.java	(revision f9328c5ba18450fba1b3ce22c7c2860aba530e27)
++++ b/src/main/java/com/albion/api/controller/ProjecaoDeFaturamentoController.java	(date 1791556599459)
+@@ -3,6 +3,8 @@
+ import com.albion.api.dto.CraftRequestDto;
+ import com.albion.api.dto.CraftResponseDto;
+ import com.albion.api.service.CalculaViabilidadeDeProdcao;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ import org.springframework.http.ResponseEntity;
+ import org.springframework.web.bind.annotation.CrossOrigin;
+ import org.springframework.web.bind.annotation.PostMapping;
+@@ -13,6 +15,8 @@
+ @CrossOrigin(origins = "*")
+ public class ProjecaoDeFaturamentoController {
+ 
++	private static final Logger log = LoggerFactory.getLogger(ProjecaoDeFaturamentoController.class);
++
+ 	private final CalculaViabilidadeDeProdcao calculaViabilidadeDeProdcao;
+ 
+ 	public ProjecaoDeFaturamentoController(CalculaViabilidadeDeProdcao calculaViabilidadeDeProdcao) {
+@@ -21,7 +25,18 @@
+ 
+ 	@PostMapping(value = "/calculaViabilidadePorRecurso")
+ 	public ResponseEntity<CraftResponseDto> calculaFaturamento(@RequestBody CraftRequestDto request) {
++		log.info("[Classe: {}] [Metodo: {}] [Entrada: {}]", 
++				"ProjecaoDeFaturamentoController", 
++				"calculaFaturamento", 
++				request);
++
+ 		CraftResponseDto response = calculaViabilidadeDeProdcao.calcular(request);
++
++		log.info("[Classe: {}] [Metodo: {}] [Saida: {}]", 
++				"ProjecaoDeFaturamentoController", 
++				"calculaFaturamento", 
++				response);
++
+ 		return ResponseEntity.ok(response);
+ 	}
+ }
+Index: src/main/java/com/albion/api/ApiApplication.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.albion.api;\r\n\r\nimport org.springframework.boot.SpringApplication;\r\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\r\n\r\n@SpringBootApplication\r\npublic class ApiApplication {\r\n\r\n\tpublic static void main(String[] args) {\r\n\t\tSpringApplication.run(ApiApplication.class, args);\r\n\t}\r\n\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/albion/api/ApiApplication.java b/src/main/java/com/albion/api/ApiApplication.java
+--- a/src/main/java/com/albion/api/ApiApplication.java	(revision f9328c5ba18450fba1b3ce22c7c2860aba530e27)
++++ b/src/main/java/com/albion/api/ApiApplication.java	(date 1791556599458)
+@@ -1,13 +1,27 @@
+ package com.albion.api;
+ 
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ import org.springframework.boot.SpringApplication;
+ import org.springframework.boot.autoconfigure.SpringBootApplication;
+ 
++import java.util.Arrays;
++
+ @SpringBootApplication
+ public class ApiApplication {
+ 
++	private static final Logger log = LoggerFactory.getLogger(ApiApplication.class);
++
+ 	public static void main(String[] args) {
++		log.info("[Classe: {}] [Metodo: {}] [Entrada: args={}]", 
++				"ApiApplication", 
++				"main", 
++				Arrays.toString(args));
++
+ 		SpringApplication.run(ApiApplication.class, args);
+-	}
+ 
++		log.info("[Classe: {}] [Metodo: {}] [Saida: Aplicacao iniciada com sucesso]", 
++				"ApiApplication", 
++				"main");
++	}
+ }
+Index: src/main/java/com/albion/api/filter/RequestLoggingFilter.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/albion/api/filter/RequestLoggingFilter.java b/src/main/java/com/albion/api/filter/RequestLoggingFilter.java
+new file mode 100644
+--- /dev/null	(date 1791556599459)
++++ b/src/main/java/com/albion/api/filter/RequestLoggingFilter.java	(date 1791556599459)
+@@ -0,0 +1,53 @@
++package com.albion.api.filter;
++
++import jakarta.servlet.FilterChain;
++import jakarta.servlet.ServletException;
++import jakarta.servlet.http.HttpServletRequest;
++import jakarta.servlet.http.HttpServletResponse;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.core.Ordered;
++import org.springframework.core.annotation.Order;
++import org.springframework.stereotype.Component;
++import org.springframework.web.filter.OncePerRequestFilter;
++
++import java.io.IOException;
++
++@Component
++@Order(Ordered.HIGHEST_PRECEDENCE)
++public class RequestLoggingFilter extends OncePerRequestFilter {
++
++	private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
++
++	@Override
++	protected void doFilterInternal(
++			HttpServletRequest request,
++			HttpServletResponse response,
++			FilterChain filterChain
++	) throws ServletException, IOException {
++		long startTime = System.currentTimeMillis();
++		String uri = request.getRequestURI();
++		String method = request.getMethod();
++
++		log.info("[Classe: {}] [Metodo: {}] [Entrada: HTTP {} {}]", 
++				"RequestLoggingFilter", 
++				"doFilterInternal", 
++				method, 
++				uri);
++
++		try {
++			filterChain.doFilter(request, response);
++		} finally {
++			long duration = System.currentTimeMillis() - startTime;
++			int status = response.getStatus();
++
++			log.info("[Classe: {}] [Metodo: {}] [Saida: HTTP {} {} - Status: {} ({}ms)]", 
++					"RequestLoggingFilter", 
++					"doFilterInternal", 
++					method, 
++					uri, 
++					status, 
++					duration);
++		}
++	}
++}
+Index: src/test/java/com/albion/api/service/CalculaViabilidadeDeProdcaoTest.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.albion.api.service;\r\n\r\nimport com.albion.api.dto.CraftRequestDto;\r\nimport com.albion.api.dto.CraftResponseDto;\r\nimport com.albion.api.dto.RecursoRequestDto;\r\nimport org.junit.jupiter.api.BeforeEach;\r\nimport org.junit.jupiter.api.DisplayName;\r\nimport org.junit.jupiter.api.Test;\r\n\r\nimport java.math.BigDecimal;\r\nimport java.util.List;\r\n\r\nimport static org.junit.jupiter.api.Assertions.*;\r\n\r\nclass CalculaViabilidadeDeProdcaoTest {\r\n\r\n\tprivate CalculaViabilidadeDeProdcao service;\r\n\r\n\t@BeforeEach\r\n\tvoid setUp() {\r\n\t\tservice = new CalculaViabilidadeDeProdcao();\r\n\t}\r\n\r\n\t@Test\r\n\t@DisplayName(\"Deve calcular operação completa com compra de diário vazio e venda do diário cheio\")\r\n\tvoid deveCalcularOperacaoComDiariosCompletos() {\r\n\t\tCraftRequestDto request = new CraftRequestDto(\r\n\t\t\t\tList.of(new RecursoRequestDto(\"Barra de Ferro T4\", 16, new BigDecimal(\"200.00\"))),\r\n\t\t\t\t5,                                    // 5 itens\r\n\t\t\t\t25,                                   // 25% de retorno -> 60 barras gastas = 12.000\r\n\t\t\t\tnew BigDecimal(\"6000.00\"),            // Preço de venda = 6.000 (Bruto = 30.000)\r\n\t\t\t\ttrue,                                 // Conta Premium = true (6% taxa de venda)\r\n\t\t\t\tnew BigDecimal(\"500.00\"),             // Taxa da estação por 100 de nutrição = 500\r\n\t\t\t\tnew BigDecimal(\"800.00\"),             // Item Value = 800 -> Nutrição = 450 -> Taxa = 2.250\r\n\t\t\t\t2,                                    // 2 diários\r\n\t\t\t\tnew BigDecimal(\"1200.00\"),            // Compra do diário vazio = 1.200 cada (Total = 2.400)\r\n\t\t\t\tnew BigDecimal(\"5000.00\"),            // Venda do diário cheio = 5.000 cada (Total bruto = 10.000)\r\n\t\t\t\tnull,                                 // valorVendaDiario\r\n\t\t\t\tfalse,                                // Venda Instantânea (sem taxa de montagem de 2.5%)\r\n\t\t\t\ttrue,                                 // Usou foco\r\n\t\t\t\t1000                                  // 1000 pontos de foco\r\n\t\t);\r\n\r\n\t\tCraftResponseDto response = service.calcular(request);\r\n\r\n\t\tassertNotNull(response);\r\n\t\t// Custo de compra dos vazios: 2 * 1200 = 2.400\r\n\t\tassertEquals(new BigDecimal(\"2400.00\"), response.custoDiariosVazios());\r\n\r\n\t\t// Venda cheios: 2 * 5000 = 10.000. Taxa 6% = 600. Receita líquida diários = 9.400\r\n\t\tassertEquals(new BigDecimal(\"9400.00\"), response.receitaDiarios());\r\n\r\n\t\t// Lucro limpo dos diários: 9.400 - 2.400 = 7.000\r\n\t\tassertEquals(new BigDecimal(\"7000.00\"), response.lucroLiquidoDiarios());\r\n\r\n\t\t// Custo total: 12.000 (insumos) + 2.250 (estação) + 2.400 (diários vazios) = 16.650\r\n\t\tassertEquals(new BigDecimal(\"16650.00\"), response.custoTotalDaProdcao());\r\n\r\n\t\t// Itens: Venda 30.000 - 6% (1.800) = 28.200\r\n\t\t// Receita líquida total: 28.200 (itens) + 9.400 (diários) = 37.600\r\n\t\tassertEquals(new BigDecimal(\"37600.00\"), response.receitaLiquidaTotal());\r\n\r\n\t\t// Lucro: 37.600 - 16.650 = 20.950\r\n\t\tassertEquals(new BigDecimal(\"20950.00\"), response.lucro());\r\n\t}\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/com/albion/api/service/CalculaViabilidadeDeProdcaoTest.java b/src/test/java/com/albion/api/service/CalculaViabilidadeDeProdcaoTest.java
+--- a/src/test/java/com/albion/api/service/CalculaViabilidadeDeProdcaoTest.java	(revision f9328c5ba18450fba1b3ce22c7c2860aba530e27)
++++ b/src/test/java/com/albion/api/service/CalculaViabilidadeDeProdcaoTest.java	(date 1791556599461)
+@@ -46,21 +46,22 @@
+ 		assertNotNull(response);
+ 		// Custo de compra dos vazios: 2 * 1200 = 2.400
+ 		assertEquals(new BigDecimal("2400.00"), response.custoDiariosVazios());
+-
+ 		// Venda cheios: 2 * 5000 = 10.000. Taxa 6% = 600. Receita líquida diários = 9.400
+ 		assertEquals(new BigDecimal("9400.00"), response.receitaDiarios());
+-
+ 		// Lucro limpo dos diários: 9.400 - 2.400 = 7.000
+ 		assertEquals(new BigDecimal("7000.00"), response.lucroLiquidoDiarios());
+-
+ 		// Custo total: 12.000 (insumos) + 2.250 (estação) + 2.400 (diários vazios) = 16.650
+ 		assertEquals(new BigDecimal("16650.00"), response.custoTotalDaProdcao());
+-
+ 		// Itens: Venda 30.000 - 6% (1.800) = 28.200
+ 		// Receita líquida total: 28.200 (itens) + 9.400 (diários) = 37.600
+ 		assertEquals(new BigDecimal("37600.00"), response.receitaLiquidaTotal());
+-
+ 		// Lucro: 37.600 - 16.650 = 20.950
+ 		assertEquals(new BigDecimal("20950.00"), response.lucro());
+ 	}
++
++	@Test
++	@DisplayName("Deve lançar exceção quando o request for nulo")
++	void deveLancarExcecaoQuandoRequestForNulo() {
++		assertThrows(IllegalArgumentException.class, () -> service.calcular(null));
++	}
+ }

@@ -1,3 +1,70 @@
-# Default ignored files
-/shelf/
-/workspace.xml
+# =========================================================================
+# COMPILAÇÃO E ARTEFATOS (Maven / Gradle)
+# =========================================================================
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+build/
+.gradle/
+/build/
+!gradle-wrapper.jar
+
+# Arquivos de log e executáveis finais
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+*.log
+
+# =========================================================================
+# CONFIGURAÇÕES DE IDES
+# =========================================================================
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/resources/.idea/
+
+# Eclipse
+.metadata/
+bin/
+tmp/
+.tmp/
+.classpath
+.project
+.settings/
+.springBeans
+.factorypath
+
+# Visual Studio Code (VS Code)
+.vscode/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# =========================================================================
+# ARQUIVOS DO SISTEMA OPERACIONAL
+# =========================================================================
+DS_Store
+Thumbs.db
+*.swp
+
+# =========================================================================
+# SEGURANÇA E CONFIGURAÇÕES LOCAIS (MUITO IMPORTANTE)
+# =========================================================================
+# Bloqueia arquivos que contêm senhas ou chaves de propriedades locais
+*.local
+.env
+.env.*
+application-local.properties
+application-local.yml

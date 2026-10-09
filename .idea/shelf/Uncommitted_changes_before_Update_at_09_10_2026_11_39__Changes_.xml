@@ -1,0 +1,19 @@
+<changelist name="Uncommitted_changes_before_Update_at_09_10_2026_11_39_[Changes]" date="1791556767766" recycled="false" toDelete="true">
+  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_09_10_2026_11_39_[Changes]/shelved.patch" />
+  <option name="DESCRIPTION" value="Uncommitted changes before Update at 09/10/2026 11:39 [Changes]" />
+  <binary>
+    <option name="BEFORE_PATH" value="target/classes/com/albion/api/service/CalculaViabilidadeDeProdcao.class" />
+    <option name="AFTER_PATH" value="target/classes/com/albion/api/service/CalculaViabilidadeDeProdcao.class" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_09_10_2026_11_39_[Changes]/CalculaViabilidadeDeProdcao.class" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="target/classes/com/albion/api/dto/CraftRequestDto.class" />
+    <option name="AFTER_PATH" value="target/classes/com/albion/api/dto/CraftRequestDto.class" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_09_10_2026_11_39_[Changes]/CraftRequestDto.class" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="target/classes/com/albion/api/dto/CraftResponseDto.class" />
+    <option name="AFTER_PATH" value="target/classes/com/albion/api/dto/CraftResponseDto.class" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_09_10_2026_11_39_[Changes]/CraftResponseDto.class" />
+  </binary>
+</changelist>

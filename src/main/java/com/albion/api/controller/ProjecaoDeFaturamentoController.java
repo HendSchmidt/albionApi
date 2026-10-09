@@ -9,10 +9,15 @@ import com.albion.api.service.CalculaViabilidadeDeProdcao;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @CrossOrigin(origins = "*")
+@RequestMapping("/projecaoFaturamento")
 public class ProjecaoDeFaturamentoController {
 
     private static final Logger log = LoggerFactory.getLogger(ProjecaoDeFaturamentoController.class);
@@ -30,7 +35,7 @@ public class ProjecaoDeFaturamentoController {
     @PostMapping("/calculaViabilidadePorRecurso")
     public ResponseEntity<CraftResponseDto> calculaViabilidadePorRecurso(@RequestBody CraftRequestDto request) {
         log.info("[CLASSE: ProjecaoDeFaturamentoController] [METODO: calculaViabilidadePorRecurso] [ENTRADA: {}]", request);
-        CraftResponseDto response = calculaViabilidadeDeProdcao.calcula(request);
+        CraftResponseDto response = calculaViabilidadeDeProdcao.calcular(request);
         log.info("[CLASSE: ProjecaoDeFaturamentoController] [METODO: calculaViabilidadePorRecurso] [SAIDA: {}]", response);
         return ResponseEntity.ok(response);
     }

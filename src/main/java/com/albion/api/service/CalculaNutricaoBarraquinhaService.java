@@ -15,6 +15,7 @@ import java.util.List;
 public class CalculaNutricaoBarraquinhaService {
 
     private static final Logger log = LoggerFactory.getLogger(CalculaNutricaoBarraquinhaService.class);
+
     private static final BigDecimal CEM = new BigDecimal("100");
     private static final BigDecimal DOIS = new BigDecimal("2");
     private static final BigDecimal UM = BigDecimal.ONE;
@@ -56,14 +57,15 @@ public class CalculaNutricaoBarraquinhaService {
         List<RecursoRequestDto> ingredientes = request.ingredientes();
         if (ingredientes != null && !ingredientes.isEmpty()) {
             for (RecursoRequestDto ing : ingredientes) {
-                if (ing != null && ing.quantidade() != null && ing.valor() != null) {
-                    BigDecimal preco = BigDecimal.valueOf(ing.valor());
+                if (ing != null && ing.quantidade() > 0 && ing.valor() != null) {
+                    BigDecimal preco = ing.valor();
                     BigDecimal qtd = BigDecimal.valueOf(ing.quantidade());
                     BigDecimal custoItem = preco.multiply(qtd).multiply(fatorCustoInsumo);
                     custoInsumosTotal = custoInsumosTotal.add(custoItem);
                 }
             }
         }
+
         BigDecimal custoProducaoTotal = custoInsumosTotal.setScale(2, RoundingMode.HALF_UP);
         BigDecimal custoProducaoPorUnidade = custoProducaoTotal.divide(qtdTotalBd, 2, RoundingMode.HALF_UP);
 

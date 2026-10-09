@@ -24,6 +24,55 @@ class CalculaViabilidadeDeProdcaoTest {
 	}
 
 	@Test
+	@DisplayName("Deve calcular operacao de Culinaria com rendimento de 10 unidades por clique")
+	void deveCalcularCulinariaComLoteDeDezUnidadesPorClique() {
+		// 1 clique de Guisado de Carne gerando 10 unidades
+		CraftRequestDto request = new CraftRequestDto(
+				List.of(
+						new RecursoRequestDto("Carne Crua T8", 8, new BigDecimal("1000.00")),
+						new RecursoRequestDto("Pao", 4, new BigDecimal("500.00"))
+				),
+				1,                                    // 1 clique
+				15,                                   // 15% TRR -> Custo corrigido: 10.000 * 0.85 = 8.500
+				new BigDecimal("1000.00"),            // Preço de venda = 1.000 por guisado no mercado
+				true,                                 // Conta Premium (6%)
+				BigDecimal.ZERO,                      // Sem taxa de estação
+				BigDecimal.ZERO,
+				0,
+				BigDecimal.ZERO,
+				BigDecimal.ZERO,
+				null,
+				false,                                // Venda direta (0% setup fee, apenas 6% mercado)
+				false,
+				0,
+				10,                                   // 1 clique = 10 guisados produzidos!
+				"CULINARIA"
+		);
+
+		CraftResponseDto response = service.calcular(request);
+		assertNotNull(response);
+
+		// Total de itens: 1 clique * 10 = 10 guisados
+		assertEquals(10, response.totalItensProduzidos());
+		assertEquals(10, response.rendimentoPorClique());
+
+		// Custo total da produção: (8*1000 + 4*500) * 0.85 = 10.000 * 0.85 = 8.500
+		assertEquals(new BigDecimal("8500.00"), response.custoTotalDaProdcao());
+
+		// Custo por guisado individual: 8.500 / 10 = 850
+		assertEquals(new BigDecimal("850.00"), response.custoUnitarioItemFinal());
+
+		// Receita Bruta = 10 guisados * 1.000 = 10.000. Taxa 6% = 600. Receita Líquida = 9.400
+		assertEquals(new BigDecimal("9400.00"), response.receitaLiquidaTotal());
+
+		// Lucro: 9.400 - 8.500 = +900 de prata
+		assertEquals(new BigDecimal("900.00"), response.lucro());
+
+		// Lucro unitário: 900 / 10 = +90 por guisado
+		assertEquals(new BigDecimal("90.00"), response.lucroUnitarioItemFinal());
+	}
+
+	@Test
 	@DisplayName("Deve calcular operação completa com compra de diário vazio e venda do diário cheio")
 	void deveCalcularOperacaoComDiariosCompletos() {
 		CraftRequestDto request = new CraftRequestDto(
@@ -44,19 +93,24 @@ class CalculaViabilidadeDeProdcaoTest {
 		);
 
 		CraftResponseDto response = service.calcular(request);
-
 		assertNotNull(response);
+
 		// Custo de compra dos vazios: 2 * 1200 = 2.400
 		assertEquals(new BigDecimal("2400.00"), response.custoDiariosVazios());
+
 		// Venda cheios: 2 * 5000 = 10.000. Taxa 6% = 600. Receita líquida diários = 9.400
 		assertEquals(new BigDecimal("9400.00"), response.receitaDiarios());
+
 		// Lucro limpo dos diários: 9.400 - 2.400 = 7.000
 		assertEquals(new BigDecimal("7000.00"), response.lucroLiquidoDiarios());
+
 		// Custo total: 12.000 (insumos) + 2.250 (estação) + 2.400 (diários vazios) = 16.650
 		assertEquals(new BigDecimal("16650.00"), response.custoTotalDaProdcao());
+
 		// Itens: Venda 30.000 - 6% (1.800) = 28.200
 		// Receita líquida total: 28.200 (itens) + 9.400 (diários) = 37.600
 		assertEquals(new BigDecimal("37600.00"), response.receitaLiquidaTotal());
+
 		// Lucro: 37.600 - 16.650 = 20.950
 		assertEquals(new BigDecimal("20950.00"), response.lucro());
 	}

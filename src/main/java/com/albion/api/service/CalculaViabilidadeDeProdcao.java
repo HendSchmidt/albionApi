@@ -32,8 +32,8 @@ public class CalculaViabilidadeDeProdcao {
 	private static final BigDecimal CEM = new BigDecimal("100");
 
 	/**
-	 * Calcula o custo por recurso, taxas de estação, ciclo completo dos diários de artesão
-	 * (compra do vazio vs venda do cheio com taxas), taxas de mercado e Silver per Focus (SPF).
+	 * Calcula o custo por recurso, rendimento por clique de lote (Culinária 10x, Alquimia 5x, Refino/Equip 1x),
+	 * taxas de estação, ciclo completo dos diários de artesão, taxas de mercado e Silver per Focus (SPF).
 	 *
 	 * @param request DTO com todos os parâmetros de craft do Albion Online.
 	 * @return CraftResponseDto com detalhamento econômico completo.
@@ -51,8 +51,24 @@ public class CalculaViabilidadeDeProdcao {
 			throw new IllegalArgumentException("O payload de fabricação e a lista de recursos não podem ser nulos.");
 		}
 
-		int quantidadeProducao = Math.max(1, request.quantidadeParaProducao());
+		// Quantidade de cliques / receitas fabricadas
+		int quantidadeCliques = Math.max(1, request.quantidadeParaProducao());
 		int taxaRetorno = Math.max(0, request.taxaDeRetorno());
+
+		// Rendimento por clique segundo as regras de lote do Albion Online:
+		// Culinária (Comidas): 1 clique = 10 unidades
+		// Alquimia (Poções/Bebidas): 1 clique = 5 unidades
+		// Refino e Equipamentos: 1 clique = 1 unidade
+		int rendimento = request.rendimentoPorClique() != null && request.rendimentoPorClique() > 0
+				? request.rendimentoPorClique()
+				: 1;
+
+		String categoria = request.categoriaProducao() != null && !request.categoriaProducao().isBlank()
+				? request.categoriaProducao()
+				: (rendimento == 10 ? "CULINARIA" : (rendimento == 5 ? "ALQUIMIA" : "EQUIPAMENTOS"));
+
+		// Total efetivo de itens finais produzidos no lote completo
+		int totalItensProduzidos = quantidadeCliques * rendimento;
 
 		// 1. Fator de retorno de materiais (RRR)
 		BigDecimal fatorRetorno = BigDecimal.valueOf(taxaRetorno)
@@ -62,15 +78,17 @@ public class CalculaViabilidadeDeProdcao {
 		List<RecursoResponseDto> custosPorRecurso = new ArrayList<>();
 		BigDecimal custoInsumos = BigDecimal.ZERO;
 
-		// Cálculo do custo de cada recurso com a taxa de retorno
+		// Cálculo do custo de cada recurso com a taxa de retorno (por clique executado)
 		for (RecursoRequestDto recurso : request.recurso()) {
 			if (recurso == null) continue;
-			BigDecimal qtdTotal = BigDecimal.valueOf((long) recurso.quantidade() * quantidadeProducao);
+			BigDecimal qtdTotal = BigDecimal.valueOf((long) recurso.quantidade() * quantidadeCliques);
 			BigDecimal qtdConsumidaEfetiva = qtdTotal.multiply(fatorConsumo);
 			BigDecimal valorUnitario = recurso.valor() != null ? recurso.valor() : BigDecimal.ZERO;
+
 			BigDecimal custoRecurso = qtdConsumidaEfetiva
 					.multiply(valorUnitario)
 					.setScale(2, RoundingMode.HALF_UP);
+
 			custosPorRecurso.add(new RecursoResponseDto(recurso.nome(), custoRecurso));
 			custoInsumos = custoInsumos.add(custoRecurso);
 		}
@@ -80,12 +98,12 @@ public class CalculaViabilidadeDeProdcao {
 		if (request.taxaEstacaoPorCemNutricao() != null && request.taxaEstacaoPorCemNutricao().compareTo(BigDecimal.ZERO) > 0) {
 			BigDecimal iv = request.itemValue() != null && request.itemValue().compareTo(BigDecimal.ZERO) > 0
 					? request.itemValue()
-					: custoInsumos.divide(BigDecimal.valueOf(quantidadeProducao), 2, RoundingMode.HALF_UP);
+					: custoInsumos.divide(BigDecimal.valueOf(quantidadeCliques), 2, RoundingMode.HALF_UP);
 
-			// Nutrição consumida = Item Value * 0.1125 * Quantidade
+			// Nutrição consumida = Item Value * 0.1125 * Quantidade de Cliques
 			BigDecimal nutricaoConsumida = iv
 					.multiply(FATOR_NUTRICAO)
-					.multiply(BigDecimal.valueOf(quantidadeProducao));
+					.multiply(BigDecimal.valueOf(quantidadeCliques));
 
 			// Custo = (Nutrição / 100) * Taxa por 100 de nutrição
 			custoTaxaEstacao = nutricaoConsumida
@@ -95,9 +113,10 @@ public class CalculaViabilidadeDeProdcao {
 		}
 
 		// 3. Taxas de Mercado (Itens Fabricados):
-		BigDecimal precoVenda = request.precoDeVenda() != null ? request.precoDeVenda() : BigDecimal.ZERO;
-		BigDecimal receitaBrutaItens = precoVenda
-				.multiply(BigDecimal.valueOf(quantidadeProducao))
+		// O preço de venda informado é por unidade do item final no mercado (ex: 1 Guisado = 1.000 prata)
+		BigDecimal precoVendaUnitario = request.precoDeVenda() != null ? request.precoDeVenda() : BigDecimal.ZERO;
+		BigDecimal receitaBrutaItens = precoVendaUnitario
+				.multiply(BigDecimal.valueOf(totalItensProduzidos))
 				.setScale(2, RoundingMode.HALF_UP);
 
 		// Taxa de Venda: 6% com Premium / 12% sem Premium
@@ -121,7 +140,6 @@ public class CalculaViabilidadeDeProdcao {
 				.setScale(2, RoundingMode.HALF_UP);
 
 		// 4. Operação Completa com Diários de Artesão (Crafting Journals):
-		// Para saber se vale a pena: Compra o diário vazio -> Enche com a fama do craft -> Vende o cheio no mercado
 		BigDecimal custoDiariosVazios = BigDecimal.ZERO;
 		BigDecimal receitaBrutaDiarios = BigDecimal.ZERO;
 		BigDecimal taxaVendaDiarios = BigDecimal.ZERO;
@@ -131,17 +149,14 @@ public class CalculaViabilidadeDeProdcao {
 
 		int qtdDiarios = request.quantidadeDiarios() != null ? Math.max(0, request.quantidadeDiarios()) : 0;
 		if (qtdDiarios > 0) {
-			// Preço de venda do cheio
 			BigDecimal precoCheio = request.precoDiarioCheio() != null && request.precoDiarioCheio().compareTo(BigDecimal.ZERO) > 0
 					? request.precoDiarioCheio()
 					: (request.valorVendaDiario() != null ? request.valorVendaDiario() : BigDecimal.ZERO);
 			receitaBrutaDiarios = precoCheio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);
 
-			// Preço de compra do vazio
 			BigDecimal precoVazio = request.precoDiarioVazio() != null ? request.precoDiarioVazio() : BigDecimal.ZERO;
 			custoDiariosVazios = precoVazio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);
 
-			// Taxas de mercado na venda dos diários (mesma alíquota de venda e montagem de ordem)
 			taxaVendaDiarios = receitaBrutaDiarios.multiply(aliquotaVenda).setScale(2, RoundingMode.HALF_UP);
 			taxaMontagemDiarios = receitaBrutaDiarios.multiply(taxaMontagemOrdemAliquota).setScale(2, RoundingMode.HALF_UP);
 			receitaLiquidaDiarios = receitaBrutaDiarios.subtract(taxaVendaDiarios).subtract(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);
@@ -155,15 +170,19 @@ public class CalculaViabilidadeDeProdcao {
 				.add(custoDiariosVazios)
 				.setScale(2, RoundingMode.HALF_UP);
 
-		// Total de taxas de venda e montagem consolidadas
 		BigDecimal taxaVendaTotal = taxaVendaItens.add(taxaVendaDiarios).setScale(2, RoundingMode.HALF_UP);
 		BigDecimal taxaMontagemTotal = taxaMontagemItens.add(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);
 
-		// Receita Líquida Total = Receita Líquida dos Itens + Receita Líquida dos Diários
 		BigDecimal receitaLiquidaTotal = receitaLiquidaItens.add(receitaLiquidaDiarios).setScale(2, RoundingMode.HALF_UP);
 
 		// 6. Lucro Líquido Final = Receita Líquida Total - Custo Total da Produção
 		BigDecimal lucro = receitaLiquidaTotal.subtract(custoTotalProducao).setScale(2, RoundingMode.HALF_UP);
+
+		// Custo e Lucro unitários por item final gerado (ex: custo do lote dividido por 10 no caso de culinária)
+		BigDecimal custoUnitarioItemFinal = custoTotalProducao
+				.divide(BigDecimal.valueOf(totalItensProduzidos), 2, RoundingMode.HALF_UP);
+		BigDecimal lucroUnitarioItemFinal = lucro
+				.divide(BigDecimal.valueOf(totalItensProduzidos), 2, RoundingMode.HALF_UP);
 
 		// 7. Métrica de Prata por Ponto de Foco (Silver per Focus - SPF)
 		BigDecimal prataPorFoco = BigDecimal.ZERO;
@@ -183,7 +202,12 @@ public class CalculaViabilidadeDeProdcao {
 				taxaMontagemTotal,
 				taxaVendaTotal,
 				receitaLiquidaTotal,
-				prataPorFoco
+				prataPorFoco,
+				totalItensProduzidos,
+				rendimento,
+				custoUnitarioItemFinal,
+				lucroUnitarioItemFinal,
+				categoria
 		);
 
 		log.info("[Classe: {}] [Metodo: {}] [Saida: {}]", 

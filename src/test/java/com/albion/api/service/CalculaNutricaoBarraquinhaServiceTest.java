@@ -34,7 +34,7 @@ class CalculaNutricaoBarraquinhaServiceTest {
                 new BigDecimal("1400"),
                 true,
                 true,
-                List.of(new RecursoRequestDto("Repolho", 144, 70))
+                List.of(new RecursoRequestDto("Repolho", 144, new BigDecimal("70.00")))
         );
 
         FoodNutritionSaleResponseDto response = service.calcular(request);
@@ -61,7 +61,7 @@ class CalculaNutricaoBarraquinhaServiceTest {
                 new BigDecimal("1400"),
                 true,
                 true,
-                List.of(new RecursoRequestDto("Repolho", 144, 70))
+                List.of(new RecursoRequestDto("Repolho", 144, new BigDecimal("70.00")))
         );
 
         FoodNutritionSaleResponseDto response = service.calcular(request);
@@ -85,7 +85,7 @@ class CalculaNutricaoBarraquinhaServiceTest {
                 new BigDecimal("120"),
                 true,
                 true,
-                List.of(new RecursoRequestDto("Cenoura", 16, 25))
+                List.of(new RecursoRequestDto("Cenoura", 16, new BigDecimal("25.00")))
         );
 
         FoodNutritionSaleResponseDto response = service.calcular(request);

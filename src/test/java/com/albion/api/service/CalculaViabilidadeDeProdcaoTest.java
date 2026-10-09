@@ -46,21 +46,22 @@ class CalculaViabilidadeDeProdcaoTest {
 		assertNotNull(response);
 		// Custo de compra dos vazios: 2 * 1200 = 2.400
 		assertEquals(new BigDecimal("2400.00"), response.custoDiariosVazios());
-
 		// Venda cheios: 2 * 5000 = 10.000. Taxa 6% = 600. Receita líquida diários = 9.400
 		assertEquals(new BigDecimal("9400.00"), response.receitaDiarios());
-
 		// Lucro limpo dos diários: 9.400 - 2.400 = 7.000
 		assertEquals(new BigDecimal("7000.00"), response.lucroLiquidoDiarios());
-
 		// Custo total: 12.000 (insumos) + 2.250 (estação) + 2.400 (diários vazios) = 16.650
 		assertEquals(new BigDecimal("16650.00"), response.custoTotalDaProdcao());
-
 		// Itens: Venda 30.000 - 6% (1.800) = 28.200
 		// Receita líquida total: 28.200 (itens) + 9.400 (diários) = 37.600
 		assertEquals(new BigDecimal("37600.00"), response.receitaLiquidaTotal());
-
 		// Lucro: 37.600 - 16.650 = 20.950
 		assertEquals(new BigDecimal("20950.00"), response.lucro());
+	}
+
+	@Test
+	@DisplayName("Deve lançar exceção quando o request for nulo")
+	void deveLancarExcecaoQuandoRequestForNulo() {
+		assertThrows(IllegalArgumentException.class, () -> service.calcular(null));
 	}
 }

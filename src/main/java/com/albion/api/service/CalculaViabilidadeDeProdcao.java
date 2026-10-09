@@ -4,6 +4,8 @@ import com.albion.api.dto.CraftRequestDto;
 import com.albion.api.dto.CraftResponseDto;
 import com.albion.api.dto.RecursoRequestDto;
 import com.albion.api.dto.RecursoResponseDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -13,6 +15,8 @@ import java.util.List;
 
 @Service
 public class CalculaViabilidadeDeProdcao {
+
+	private static final Logger log = LoggerFactory.getLogger(CalculaViabilidadeDeProdcao.class);
 
 	// Taxas do mercado:
 	// Com Conta Premium: 6% de taxa (0.06).
@@ -36,8 +40,18 @@ public class CalculaViabilidadeDeProdcao {
 	 * @return CraftResponseDto com detalhamento econômico completo.
 	 */
 	public CraftResponseDto calcular(CraftRequestDto request) {
+		log.info("[Classe: {}] [Metodo: {}] [Entrada: {}]", 
+				"CalculaViabilidadeDeProdcao", 
+				"calcular", 
+				request);
+
 		if (request == null || request.recurso() == null) {
-			throw new IllegalArgumentException("O payload de fabricação e a lista de recursos não podem ser nulos.");
+			IllegalArgumentException ex = new IllegalArgumentException("O payload de fabricação e a lista de recursos não podem ser nulos.");
+			log.error("[Classe: {}] [Metodo: {}] [Erro: {}]", 
+					"CalculaViabilidadeDeProdcao", 
+					"calcular", 
+					ex.getMessage());
+			throw ex;
 		}
 
 		int quantidadeProducao = Math.max(1, request.quantidadeParaProducao());
@@ -54,10 +68,8 @@ public class CalculaViabilidadeDeProdcao {
 		// Cálculo do custo de cada recurso com a taxa de retorno
 		for (RecursoRequestDto recurso : request.recurso()) {
 			if (recurso == null) continue;
-
 			BigDecimal qtdTotal = BigDecimal.valueOf((long) recurso.quantidade() * quantidadeProducao);
 			BigDecimal qtdConsumidaEfetiva = qtdTotal.multiply(fatorConsumo);
-
 			BigDecimal valorUnitario = recurso.valor() != null ? recurso.valor() : BigDecimal.ZERO;
 			BigDecimal custoRecurso = qtdConsumidaEfetiva
 					.multiply(valorUnitario)
@@ -96,6 +108,7 @@ public class CalculaViabilidadeDeProdcao {
 		BigDecimal aliquotaVenda = request.contaPremium()
 				? TAXA_MERCADO_COM_PREMIUM
 				: TAXA_MERCADO_SEM_PREMIUM;
+
 		BigDecimal taxaVendaItens = receitaBrutaItens
 				.multiply(aliquotaVenda)
 				.setScale(2, RoundingMode.HALF_UP);
@@ -113,7 +126,6 @@ public class CalculaViabilidadeDeProdcao {
 				.setScale(2, RoundingMode.HALF_UP);
 
 		// 4. Operação Completa com Diários de Artesão (Crafting Journals):
-		// Para saber se vale a pena: Compra o diário vazio -> Enche com a fama do craft -> Vende o cheio no mercado
 		BigDecimal custoDiariosVazios = BigDecimal.ZERO;
 		BigDecimal receitaBrutaDiarios = BigDecimal.ZERO;
 		BigDecimal taxaVendaDiarios = BigDecimal.ZERO;
@@ -123,37 +135,28 @@ public class CalculaViabilidadeDeProdcao {
 
 		int qtdDiarios = request.quantidadeDiarios() != null ? Math.max(0, request.quantidadeDiarios()) : 0;
 		if (qtdDiarios > 0) {
-			// Preço de venda do cheio
 			BigDecimal precoCheio = request.precoDiarioCheio() != null && request.precoDiarioCheio().compareTo(BigDecimal.ZERO) > 0
 					? request.precoDiarioCheio()
 					: (request.valorVendaDiario() != null ? request.valorVendaDiario() : BigDecimal.ZERO);
-
 			receitaBrutaDiarios = precoCheio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);
 
-			// Preço de compra do vazio
 			BigDecimal precoVazio = request.precoDiarioVazio() != null ? request.precoDiarioVazio() : BigDecimal.ZERO;
 			custoDiariosVazios = precoVazio.multiply(BigDecimal.valueOf(qtdDiarios)).setScale(2, RoundingMode.HALF_UP);
 
-			// Taxas de mercado na venda dos diários (mesma alíquota de venda e montagem de ordem)
 			taxaVendaDiarios = receitaBrutaDiarios.multiply(aliquotaVenda).setScale(2, RoundingMode.HALF_UP);
 			taxaMontagemDiarios = receitaBrutaDiarios.multiply(taxaMontagemOrdemAliquota).setScale(2, RoundingMode.HALF_UP);
-
 			receitaLiquidaDiarios = receitaBrutaDiarios.subtract(taxaVendaDiarios).subtract(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);
 			lucroLiquidoDiarios = receitaLiquidaDiarios.subtract(custoDiariosVazios).setScale(2, RoundingMode.HALF_UP);
 		}
 
 		// 5. Consolidação de Custos, Taxas e Receitas:
-		// Custo Total da Produção = Insumos + Taxa da Estação + Custo de Aquisição dos Diários Vazios
 		BigDecimal custoTotalProducao = custoInsumos
 				.add(custoTaxaEstacao)
 				.add(custoDiariosVazios)
 				.setScale(2, RoundingMode.HALF_UP);
 
-		// Total de taxas de venda e montagem consolidadas
 		BigDecimal taxaVendaTotal = taxaVendaItens.add(taxaVendaDiarios).setScale(2, RoundingMode.HALF_UP);
 		BigDecimal taxaMontagemTotal = taxaMontagemItens.add(taxaMontagemDiarios).setScale(2, RoundingMode.HALF_UP);
-
-		// Receita Líquida Total = Receita Líquida dos Itens + Receita Líquida dos Diários
 		BigDecimal receitaLiquidaTotal = receitaLiquidaItens.add(receitaLiquidaDiarios).setScale(2, RoundingMode.HALF_UP);
 
 		// 6. Lucro Líquido Final = Receita Líquida Total - Custo Total da Produção
@@ -166,7 +169,7 @@ public class CalculaViabilidadeDeProdcao {
 					.divide(BigDecimal.valueOf(request.custoFocoTotal()), 2, RoundingMode.HALF_UP);
 		}
 
-		return new CraftResponseDto(
+		CraftResponseDto response = new CraftResponseDto(
 				custoTotalProducao,
 				custosPorRecurso,
 				lucro,
@@ -179,5 +182,12 @@ public class CalculaViabilidadeDeProdcao {
 				receitaLiquidaTotal,
 				prataPorFoco
 		);
+
+		log.info("[Classe: {}] [Metodo: {}] [Saida: {}]", 
+				"CalculaViabilidadeDeProdcao", 
+				"calcular", 
+				response);
+
+		return response;
 	}
 }

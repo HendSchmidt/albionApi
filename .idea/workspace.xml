@@ -5,15 +5,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e752e71c-da28-4376-860d-ee5f0031adf8" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/material_theme_project_new.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/material_theme_project_new.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/albion/api/domain/model/Ingrediente.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/albion/api/domain/model/Ingrediente.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/application.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/ApiApplication.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/albion/api/ApiApplication.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/controller/ProjecaoDeFaturamentoController.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/albion/api/controller/ProjecaoDeFaturamentoController.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/dto/CraftRequestDto.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/albion/api/dto/CraftRequestDto.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/dto/CraftResponseDto.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/albion/api/dto/CraftResponseDto.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/service/CalculaViabilidadeDeProdcao.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/albion/api/service/CalculaViabilidadeDeProdcao.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/ApiApplication.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/controller/ProjecaoDeFaturamentoController.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/dto/CraftRequestDto.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/dto/CraftResponseDto.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/dto/RecursoRequestDto.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/dto/RecursoResponseDto.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/filter/RequestLoggingFilter.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/albion/api/service/CalculaViabilidadeDeProdcao.class" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -54,6 +56,7 @@
   &quot;keyToString&quot;: {
     &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
     &quot;Application.ApiApplication.executor&quot;: &quot;Run&quot;,
+    &quot;Maven.api [clean,install].executor&quot;: &quot;Run&quot;,
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
@@ -67,6 +70,11 @@
     &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;
   }
 }</component>
+  <component name="RunAnythingCache">
+    <option name="myCommands">
+      <command value="mvn clean install" />
+    </option>
+  </component>
   <component name="RunManager">
     <configuration name="ApiApplication" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="com.albion.api.ApiApplication" />

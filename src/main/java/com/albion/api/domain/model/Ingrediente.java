@@ -53,7 +53,7 @@ public class Ingrediente {
     @Override
     public String toString() {
         return "Ingrediente{" +
-                "nome='" + nome + ''' +
+                "nome='" + nome + '"' +
                 ", quantidade=" + quantidade +
                 ", valorUnitario=" + valorUnitario +
                 '}';

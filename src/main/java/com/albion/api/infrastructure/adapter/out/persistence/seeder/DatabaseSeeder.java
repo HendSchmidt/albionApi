@@ -1,4 +1,4 @@
-package com.albion.api.infrastructure.config;
+package com.albion.api.infrastructure.adapter.out.persistence.seeder;
 
 import com.albion.api.domain.model.CategoriaProducao;
 import com.albion.api.domain.model.Ingrediente;
@@ -13,8 +13,14 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Seeder de infraestrutura para carregar as 18 receitas oficiais de culinária
- * como padrão no banco H2 na inicialização da aplicação.
+ * Seeder de banco de dados (Infrastructure Outbound Persistence Seeder).
+ * 
+ * Camada Arquitetural: Infrastructure -> Adapter Out -> Persistence -> Seeder
+ * 
+ * Responsabilidade:
+ * - Provisionar o banco relacional H2 com as 18 receitas oficiais de culinária
+ *   na inicialização da aplicação (caso ainda não existam).
+ * - Utiliza a porta de persistência {@link ItemFabricadoRepositoryPort} (DIP - SOLID).
  */
 @Component
 public class DatabaseSeeder implements CommandLineRunner {
@@ -29,13 +35,15 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        log.info("[Infrastructure: DatabaseSeeder] Verificando receitas culinarias padrao no H2...");
+        log.info("[Infrastructure: Persistence Seeder] Verificando receitas culinárias padrão no banco H2...");
         cadastrarReceitasPadrao();
-        log.info("[Infrastructure: DatabaseSeeder] Total de receitas cadastradas no H2: {}", repositoryPort.contar());
+        log.info("[Infrastructure: Persistence Seeder] Carga concluída. Total de receitas no H2: {}", repositoryPort.contar());
     }
 
     private void cadastrarReceitasPadrao() {
+        // --------------------------------------------------------------------
         // 1. Sopas (Regeneração de Vida fora de combate)
+        // --------------------------------------------------------------------
         cadastrarSeNaoExistir(
                 "Sopa de Cenoura (T1)",
                 CategoriaProducao.CULINARIA,
@@ -55,7 +63,9 @@ public class DatabaseSeeder implements CommandLineRunner {
                 List.of(new Ingrediente("Repolho", 48, BigDecimal.ZERO))
         );
 
+        // --------------------------------------------------------------------
         // 2. Saladas (Aumento de Velocidade e Qualidade de Craft)
+        // --------------------------------------------------------------------
         cadastrarSeNaoExistir(
                 "Salada de Nabo (T2)",
                 CategoriaProducao.CULINARIA,
@@ -84,7 +94,9 @@ public class DatabaseSeeder implements CommandLineRunner {
                 )
         );
 
+        // --------------------------------------------------------------------
         // 3. Tortas (Aumento de Carga Máxima e Rendimento de Coleta)
+        // --------------------------------------------------------------------
         cadastrarSeNaoExistir(
                 "Torta de Frango (T3)",
                 CategoriaProducao.CULINARIA,
@@ -119,7 +131,9 @@ public class DatabaseSeeder implements CommandLineRunner {
                 )
         );
 
+        // --------------------------------------------------------------------
         // 4. Guisados / Stews (Aumento de Dano de Ataque)
+        // --------------------------------------------------------------------
         cadastrarSeNaoExistir(
                 "Guisado de Cabrito (T4)",
                 CategoriaProducao.CULINARIA,
@@ -151,7 +165,9 @@ public class DatabaseSeeder implements CommandLineRunner {
                 )
         );
 
+        // --------------------------------------------------------------------
         // 5. Sanduíches (Aumento de Vida Máxima)
+        // --------------------------------------------------------------------
         cadastrarSeNaoExistir(
                 "Sanduíche de Cabrito (T4)",
                 CategoriaProducao.CULINARIA,
@@ -183,7 +199,9 @@ public class DatabaseSeeder implements CommandLineRunner {
                 )
         );
 
+        // --------------------------------------------------------------------
         // 6. Omeletes (Redução de Cooldown e Conjuração)
+        // --------------------------------------------------------------------
         cadastrarSeNaoExistir(
                 "Omelete de Frango (T3)",
                 CategoriaProducao.CULINARIA,
@@ -245,6 +263,6 @@ public class DatabaseSeeder implements CommandLineRunner {
         );
 
         repositoryPort.salvar(item);
-        log.info("[Infrastructure: DatabaseSeeder] Receita cadastrada no H2: {}", nomeItem);
+        log.info("[Infrastructure: Persistence Seeder] Receita padrão cadastrada no H2: {}", nomeItem);
     }
 }

@@ -23,7 +23,7 @@ import java.util.List;
 @RequestMapping("/itensFabricados")
 public class ItemFabricadoController {
 
-    private static final Logger log = LoggerFactory.getLogger(ItemFabricadoController.java);
+    private static final Logger log = LoggerFactory.getLogger(ItemFabricadoController.class);
 
     private final SalvarItemFabricadoUseCase salvarUseCase;
     private final BuscarItemFabricadoUseCase buscarUseCase;

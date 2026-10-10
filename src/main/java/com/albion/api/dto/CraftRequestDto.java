@@ -22,8 +22,10 @@ public record CraftRequestDto(
 		// Regras de Lotes de Fabricação do Albion Online:
 		// Culinária = 10 por clique | Alquimia = 5 por clique | Refino = 1 por clique | Equipamentos = 1 por clique
 		Integer rendimentoPorClique,          // Quantidade de itens finais gerados por cada 1 clique da receita (default: 1)
-		String categoriaProducao              // "CULINARIA", "ALQUIMIA", "REFINO", "EQUIPAMENTOS", "OUTRO"
+		String categoriaProducao,             // "CULINARIA", "ALQUIMIA", "REFINO", "EQUIPAMENTOS", "OUTRO"
+		String nomeItem                       // Nome da receita / item gravado
 ) {
+
 	// Construtor compatível com a versão original
 	public CraftRequestDto(
 			List<RecursoRequestDto> recurso,
@@ -33,7 +35,7 @@ public record CraftRequestDto(
 			boolean contaPremium
 	) {
 		this(recurso, quantidadeParaProducao, taxaDeRetorno, precoDeVenda, contaPremium,
-				null, null, null, null, null, null, true, false, null, 1, "EQUIPAMENTOS");
+				null, null, null, null, null, null, true, false, null, 1, "EQUIPAMENTOS", "Receita Customizada");
 	}
 
 	// Construtor intermediário compatível
@@ -55,6 +57,55 @@ public record CraftRequestDto(
 	) {
 		this(recurso, quantidadeParaProducao, taxaDeRetorno, precoDeVenda, contaPremium,
 				taxaEstacaoPorCemNutricao, itemValue, quantidadeDiarios, precoDiarioVazio,
-				precoDiarioCheio, valorVendaDiario, ordemDeVenda, usarFoco, custoFocoTotal, 1, "EQUIPAMENTOS");
+				precoDiarioCheio, valorVendaDiario, ordemDeVenda, usarFoco, custoFocoTotal, 1, "EQUIPAMENTOS", "Receita Customizada");
+	}
+
+	public CraftRequestDto(
+			List<RecursoRequestDto> recurso,
+			int quantidadeParaProducao,
+			int taxaDeRetorno,
+			BigDecimal precoDeVenda,
+			boolean contaPremium,
+			BigDecimal taxaEstacaoPorCemNutricao,
+			BigDecimal itemValue,
+			Integer quantidadeDiarios,
+			BigDecimal precoDiarioVazio,
+			BigDecimal precoDiarioCheio,
+			BigDecimal valorVendaDiario,
+			Boolean ordemDeVenda,
+			Boolean usarFoco,
+			Integer custoFocoTotal,
+			Integer rendimentoPorClique,
+			String categoriaProducao
+	) {
+		this(recurso, quantidadeParaProducao, taxaDeRetorno, precoDeVenda, contaPremium,
+				taxaEstacaoPorCemNutricao, itemValue, quantidadeDiarios, precoDiarioVazio,
+				precoDiarioCheio, valorVendaDiario, ordemDeVenda, usarFoco, custoFocoTotal,
+				rendimentoPorClique, categoriaProducao, "Receita Customizada");
+	}
+
+	// Métodos auxiliares de conveniência
+	public int quantidade() {
+		return quantidadeParaProducao;
+	}
+
+	public int taxaRetorno() {
+		return taxaDeRetorno;
+	}
+
+	public BigDecimal valorVenda() {
+		return precoDeVenda;
+	}
+
+	public boolean vendaInstantanea() {
+		return Boolean.FALSE.equals(ordemDeVenda);
+	}
+
+	public boolean usoFoco() {
+		return Boolean.TRUE.equals(usarFoco);
+	}
+
+	public Integer pontosFoco() {
+		return custoFocoTotal;
 	}
 }

@@ -17,4 +17,6 @@ public interface ItemFabricadoRepository extends JpaRepository<ItemFabricadoEnti
     List<ItemFabricadoEntity> buscarPorNome(@Param("termo") String termo);
 
     List<ItemFabricadoEntity> findByCategoriaProducaoOrderByDataCriacaoDesc(String categoriaProducao);
+
+    boolean existsByNomeItemIgnoreCase(String nomeItem);
 }

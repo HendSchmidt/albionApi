@@ -35,7 +35,7 @@ public class ItemFabricadoApplicationService implements SalvarItemFabricadoUseCa
     public ItemFabricadoApplicationService(ItemFabricadoRepositoryPort repositoryPort,
                                           CraftViabilidadeDomainService viabilidadeDomainService) {
         this.repositoryPort = repositoryPort;
-        this.viabilidadeDomainService = viabilidadeDomainService;
+        this.viabilidadeDomainService = viabilidadeDomainService != null ? viabilidadeDomainService : new CraftViabilidadeDomainService();
     }
 
     @Override

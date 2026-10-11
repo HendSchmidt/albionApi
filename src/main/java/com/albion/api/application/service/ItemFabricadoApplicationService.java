@@ -9,6 +9,7 @@ import com.albion.api.domain.port.out.ItemFabricadoRepositoryPort;
 import com.albion.api.domain.service.CraftViabilidadeDomainService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,6 +26,7 @@ public class ItemFabricadoApplicationService implements SalvarItemFabricadoUseCa
     private final ItemFabricadoRepositoryPort repositoryPort;
     private final CraftViabilidadeDomainService viabilidadeDomainService;
 
+    @Autowired
     public ItemFabricadoApplicationService(ItemFabricadoRepositoryPort repositoryPort) {
         this.repositoryPort = repositoryPort;
         this.viabilidadeDomainService = new CraftViabilidadeDomainService();

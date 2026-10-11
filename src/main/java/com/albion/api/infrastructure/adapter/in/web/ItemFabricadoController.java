@@ -20,7 +20,7 @@ import java.util.List;
  */
 @RestController
 @CrossOrigin(origins = "*")
-@RequestMapping("/itensFabricados")
+@RequestMapping({"/itensFabricados", "/albionApi/itensFabricados"})
 public class ItemFabricadoController {
 
     private static final Logger log = LoggerFactory.getLogger(ItemFabricadoController.class);

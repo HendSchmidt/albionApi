@@ -24,7 +24,7 @@ import java.util.List;
  */
 @RestController
 @CrossOrigin(origins = "*")
-@RequestMapping("/projecaoFaturamento")
+@RequestMapping({"/projecaoFaturamento", ""})
 public class ProjecaoDeFaturamentoController {
 
     private static final Logger log = LoggerFactory.getLogger(ProjecaoDeFaturamentoController.class);

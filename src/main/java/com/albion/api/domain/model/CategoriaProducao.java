@@ -8,6 +8,7 @@ public enum CategoriaProducao {
     CULINARIA(10),
     ALQUIMIA(5),
     EQUIPAMENTOS(1),
+    EQUIPAMENTO(1),
     REFINO(1);
 
     private final int rendimentoPadrao;
@@ -24,8 +25,12 @@ public enum CategoriaProducao {
         if (valor == null || valor.trim().isEmpty()) {
             return CULINARIA;
         }
+        String normalizado = valor.trim().toUpperCase();
+        if ("EQUIPAMENTO".equals(normalizado) || "EQUIPAMENTOS".equals(normalizado)) {
+            return EQUIPAMENTOS;
+        }
         try {
-            return CategoriaProducao.valueOf(valor.trim().toUpperCase());
+            return CategoriaProducao.valueOf(normalizado);
         } catch (IllegalArgumentException e) {
             return CULINARIA;
         }
